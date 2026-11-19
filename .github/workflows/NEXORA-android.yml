@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
     paths:
-      - '.github/NEXORA-Deploy-v1.2.0.zip'
+      - '.github/NEXORA-Deploy-v1.3.0.zip'
       - '.github/workflows/android.yml'
   workflow_dispatch:
 
