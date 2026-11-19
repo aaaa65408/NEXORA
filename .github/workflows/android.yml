@@ -5,7 +5,7 @@ on:
   push:
     branches: [main]
     paths:
-      - 'NEXORA-Deploy-v1.0.2.zip'
+      - '.github/NEXORA-Deploy-v1.0.2.zip'
       - '.github/workflows/android.yml'
   workflow_dispatch:
 
@@ -30,7 +30,8 @@ jobs:
       - name: Extract NEXORA
         run: |
           mkdir project
-          unzip NEXORA-Deploy-v1.0.2.zip -d project
+          unzip .github/NEXORA-Deploy-v1.0.2.zip -d project
+          unzip project/NEXORA-Android-Source-v1.0.2.zip -d project
 
       - name: Build APK
         run: gradle -p project :app:assembleDebug
