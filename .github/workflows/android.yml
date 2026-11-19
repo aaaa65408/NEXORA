@@ -1,0 +1,41 @@
+
+name: Build NEXORA APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'NEXORA-Deploy-v1.0.2.zip'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Extract NEXORA
+        run: |
+          mkdir project
+          unzip NEXORA-Deploy-v1.0.2.zip -d project
+
+      - name: Build APK
+        run: gradle -p project :app:assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NEXORA-APK
+          path: project/app/build/outputs/apk/debug/app-debug.apk
