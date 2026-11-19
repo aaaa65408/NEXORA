@@ -32,7 +32,7 @@ jobs:
       - name: Extract NEXORA source
         run: |
           mkdir -p project
-          unzip -q .github/NEXORA-Deploy-v1.2.0.zip -d project
+          unzip -q .github/NEXORA-Deploy-v1.3.0.zip -d project
           test -f project/settings.gradle.kts
           test -f project/app/build.gradle.kts
 
