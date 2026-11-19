@@ -1,11 +1,13 @@
+
 name: Build NEXORA Signed APK
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - '.github/NEXORA-Deploy-v1.3.0.zip'
-      - '.github/workflows/android.yml'
+      - '.github/workflows/NEXORA-android.yml'
   workflow_dispatch:
 
 permissions:
@@ -13,7 +15,9 @@ permissions:
 
 jobs:
   build:
+    name: Build Signed NEXORA APK
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -32,16 +36,27 @@ jobs:
       - name: Extract NEXORA source
         run: |
           mkdir -p project
+          test -f .github/NEXORA-Deploy-v1.3.0.zip
           unzip -q .github/NEXORA-Deploy-v1.3.0.zip -d project
           test -f project/settings.gradle.kts
           test -f project/app/build.gradle.kts
+          echo "NEXORA source extracted successfully"
 
       - name: Prepare release signing key
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          test -n "$KEYSTORE_BASE64" || (echo 'Missing KEYSTORE_BASE64 GitHub Secret' && exit 1)
+          test -n "$KEYSTORE_BASE64"
           echo "$KEYSTORE_BASE64" | base64 --decode > project/app/nexora-release.jks
+          test -s project/app/nexora-release.jks
+
+      - name: Verify release signing key
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+        run: |
+          keytool -list \
+            -keystore project/app/nexora-release.jks \
+            -storepass "$KEYSTORE_PASSWORD"
 
       - name: Build signed release APK
         working-directory: project
@@ -59,7 +74,7 @@ jobs:
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: NEXORA-release-signed
+          name: NEXORA-v1.3.0-signed-APK
           path: project/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 90
