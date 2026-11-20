@@ -1,11 +1,11 @@
 
-name: Build NEXORA Signed APK
+name: Build NEXORA Signed APK and AAB
 
 on:
   push:
     branches: [main]
     paths:
-      - '.github/NEXORA-v1.3.0-FixedSigning.zip'
+      - '.github/NEXORA-v1.4.4-Play-Store-AAB.zip'
       - '.github/workflows/NEXORA-android.yml'
   workflow_dispatch:
 
@@ -23,6 +23,10 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-36 build-tools;36.0.0'
+
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.11.1'
@@ -30,7 +34,7 @@ jobs:
       - name: Extract NEXORA project
         run: |
           mkdir -p project
-          unzip -q .github/NEXORA-v1.3.0-FixedSigning.zip -d project
+          unzip -q .github/NEXORA-v1.4.4-Play-Store-AAB.zip -d project
           test -f project/settings.gradle.kts
           test -f project/app/build.gradle.kts
 
@@ -46,24 +50,29 @@ jobs:
           test -n "$NEXORA_KEY_ALIAS"
           test -n "$NEXORA_KEY_PASSWORD"
           echo "$NEXORA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/nexora-release.jks"
+          keytool -list -keystore "$RUNNER_TEMP/nexora-release.jks" -storepass "$NEXORA_STORE_PASSWORD" -alias "$NEXORA_KEY_ALIAS" >/dev/null
           echo "NEXORA_KEYSTORE_FILE=$RUNNER_TEMP/nexora-release.jks" >> "$GITHUB_ENV"
           echo "NEXORA_STORE_PASSWORD=$NEXORA_STORE_PASSWORD" >> "$GITHUB_ENV"
           echo "NEXORA_KEY_ALIAS=$NEXORA_KEY_ALIAS" >> "$GITHUB_ENV"
           echo "NEXORA_KEY_PASSWORD=$NEXORA_KEY_PASSWORD" >> "$GITHUB_ENV"
 
-      - name: Build signed Release APK
-        run: gradle -p project :app:assembleRelease
+      - name: Build signed Release APK and AAB
+        run: gradle -p project :app:assembleRelease :app:bundleRelease
 
-      - name: Verify APK signature
+      - name: Verify signed outputs
         run: |
           APK=project/app/build/outputs/apk/release/app-release.apk
+          AAB=project/app/build/outputs/bundle/release/app-release.aab
           test -f "$APK"
-          BUILD_TOOLS=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n1)
-          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          test -f "$AAB"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$APK"
+          jarsigner -verify -verbose -certs "$AAB" >/dev/null
 
       - uses: actions/upload-artifact@v4
         with:
-          name: NEXORA-release-signed-APK
-          path: project/app/build/outputs/apk/release/app-release.apk
+          name: NEXORA-v1.4.4-release
+          path: |
+            project/app/build/outputs/apk/release/app-release.apk
+            project/app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 90
