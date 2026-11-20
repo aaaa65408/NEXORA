@@ -1,13 +1,11 @@
-
 name: Build NEXORA Signed APK
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
-      - '.github/NEXORA-Deploy-v1.3.0.zip'
-      - '.github/workflows/NEXORA-android.yml'
+      - '.github/NEXORA-v1.2.1-FixedSigning.zip'
+      - '.github/workflows/android.yml'
   workflow_dispatch:
 
 permissions:
@@ -15,66 +13,56 @@ permissions:
 
 jobs:
   build:
-    name: Build Signed NEXORA APK
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
-      - name: Extract NEXORA source
+      - name: Extract NEXORA project
         run: |
           mkdir -p project
-          test -f .github/NEXORA-Deploy-v1.3.0.zip
-          unzip -q .github/NEXORA-Deploy-v1.3.0.zip -d project
+          unzip -q .github/NEXORA-v1.2.1-FixedSigning.zip -d project
           test -f project/settings.gradle.kts
           test -f project/app/build.gradle.kts
-          echo "NEXORA source extracted successfully"
 
-      - name: Prepare release signing key
+      - name: Restore fixed release signing key
         env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          NEXORA_KEYSTORE_BASE64: ${{ secrets.NEXORA_KEYSTORE_BASE64 }}
+          NEXORA_STORE_PASSWORD: ${{ secrets.NEXORA_STORE_PASSWORD }}
+          NEXORA_KEY_ALIAS: ${{ secrets.NEXORA_KEY_ALIAS }}
+          NEXORA_KEY_PASSWORD: ${{ secrets.NEXORA_KEY_PASSWORD }}
         run: |
-          test -n "$KEYSTORE_BASE64"
-          echo "$KEYSTORE_BASE64" | base64 --decode > project/app/nexora-release.jks
-          test -s project/app/nexora-release.jks
+          test -n "$NEXORA_KEYSTORE_BASE64" || { echo "Missing NEXORA_KEYSTORE_BASE64"; exit 1; }
+          test -n "$NEXORA_STORE_PASSWORD" || { echo "Missing NEXORA_STORE_PASSWORD"; exit 1; }
+          test -n "$NEXORA_KEY_ALIAS" || { echo "Missing NEXORA_KEY_ALIAS"; exit 1; }
+          test -n "$NEXORA_KEY_PASSWORD" || { echo "Missing NEXORA_KEY_PASSWORD"; exit 1; }
+          echo "$NEXORA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/nexora-release.jks"
+          echo "NEXORA_KEYSTORE_FILE=$RUNNER_TEMP/nexora-release.jks" >> "$GITHUB_ENV"
+          echo "NEXORA_STORE_PASSWORD=$NEXORA_STORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "NEXORA_KEY_ALIAS=$NEXORA_KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "NEXORA_KEY_PASSWORD=$NEXORA_KEY_PASSWORD" >> "$GITHUB_ENV"
 
-      - name: Verify release signing key
-        env:
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      - name: Build signed Release APK
+        run: gradle -p project :app:assembleRelease
+
+      - name: Verify APK signature
         run: |
-          keytool -list \
-            -keystore project/app/nexora-release.jks \
-            -storepass "$KEYSTORE_PASSWORD"
+          APK=project/app/build/outputs/apk/release/app-release.apk
+          test -f "$APK"
+          BUILD_TOOLS=$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n1)
+          "$ANDROID_HOME/build-tools/$BUILD_TOOLS/apksigner" verify --verbose "$APK"
 
-      - name: Build signed release APK
-        working-directory: project
-        env:
-          NEXORA_KEYSTORE_FILE: app/nexora-release.jks
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          test -n "$KEYSTORE_PASSWORD"
-          test -n "$KEY_ALIAS"
-          test -n "$KEY_PASSWORD"
-          gradle :app:assembleRelease
-
-      - name: Upload signed APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
-          name: NEXORA-v1.3.0-signed-APK
+          name: NEXORA-release-signed-APK
           path: project/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 90
