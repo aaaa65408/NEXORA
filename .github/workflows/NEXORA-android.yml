@@ -1,11 +1,12 @@
+
 name: Build NEXORA Signed APK
 
 on:
   push:
     branches: [main]
     paths:
-      - '.github/NEXORA-v1.2.1-FixedSigning.zip'
-      - '.github/workflows/android.yml'
+      - '.github/NEXORA-v1.3.0-FixedSigning.zip'
+      - '.github/workflows/NEXORA-android.yml'
   workflow_dispatch:
 
 permissions:
@@ -29,7 +30,7 @@ jobs:
       - name: Extract NEXORA project
         run: |
           mkdir -p project
-          unzip -q .github/NEXORA-v1.2.1-FixedSigning.zip -d project
+          unzip -q .github/NEXORA-v1.3.0-FixedSigning.zip -d project
           test -f project/settings.gradle.kts
           test -f project/app/build.gradle.kts
 
@@ -40,10 +41,10 @@ jobs:
           NEXORA_KEY_ALIAS: ${{ secrets.NEXORA_KEY_ALIAS }}
           NEXORA_KEY_PASSWORD: ${{ secrets.NEXORA_KEY_PASSWORD }}
         run: |
-          test -n "$NEXORA_KEYSTORE_BASE64" || { echo "Missing NEXORA_KEYSTORE_BASE64"; exit 1; }
-          test -n "$NEXORA_STORE_PASSWORD" || { echo "Missing NEXORA_STORE_PASSWORD"; exit 1; }
-          test -n "$NEXORA_KEY_ALIAS" || { echo "Missing NEXORA_KEY_ALIAS"; exit 1; }
-          test -n "$NEXORA_KEY_PASSWORD" || { echo "Missing NEXORA_KEY_PASSWORD"; exit 1; }
+          test -n "$NEXORA_KEYSTORE_BASE64"
+          test -n "$NEXORA_STORE_PASSWORD"
+          test -n "$NEXORA_KEY_ALIAS"
+          test -n "$NEXORA_KEY_PASSWORD"
           echo "$NEXORA_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/nexora-release.jks"
           echo "NEXORA_KEYSTORE_FILE=$RUNNER_TEMP/nexora-release.jks" >> "$GITHUB_ENV"
           echo "NEXORA_STORE_PASSWORD=$NEXORA_STORE_PASSWORD" >> "$GITHUB_ENV"
